@@ -2,7 +2,10 @@ package gorocksdb
 
 // #include "rocksdb/c.h"
 import "C"
-import "io"
+import (
+	"errors"
+	"io"
+)
 
 // WriteBatch is a batching of Puts, Merges and Deletes.
 type WriteBatch struct {
@@ -36,6 +39,38 @@ func (wb *WriteBatch) PutCF(cf *ColumnFamilyHandle, key, value []byte) {
 	cKey := byteToChar(key)
 	cValue := byteToChar(value)
 	C.rocksdb_writebatch_put_cf(wb.c, cf.c, cKey, C.size_t(len(key)), cValue, C.size_t(len(value)))
+}
+
+// Putv queues many key and value pairs
+func (wb *WriteBatch) Putv(keys, values [][]byte) error {
+	if len(keys) != len(values) {
+		return errors.New("Number of keys and values should be the same")
+	}
+	numKeys := C.int(len(keys))
+	cKeys, cKeySizes := byteSliceToArray(keys)
+	cValues, cValueSizes := byteSliceToArray(values)
+	C.rocksdb_writebatch_putv(
+		wb.c,
+		numKeys, cKeys, cKeySizes,
+		numKeys, cValues, cValueSizes,
+	)
+	return nil
+}
+
+// PutvCF queues many key and value pairs in a column family
+func (wb *WriteBatch) PutvCF(cf *ColumnFamilyHandle, keys, values [][]byte) error {
+	if len(keys) != len(values) {
+		return errors.New("Number of keys and values should be the same")
+	}
+	numKeys := C.int(len(keys))
+	cKeys, cKeySizes := byteSliceToArray(keys)
+	cValues, cValueSizes := byteSliceToArray(values)
+	C.rocksdb_writebatch_putv_cf(
+		wb.c, cf.c,
+		numKeys, cKeys, cKeySizes,
+		numKeys, cValues, cValueSizes,
+	)
+	return nil
 }
 
 // Merge queues a merge of "value" with the existing value of "key".
