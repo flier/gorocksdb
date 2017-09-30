@@ -94,15 +94,14 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, i
     return many_keys;
 }
 
-#include "stdio.h"
-
 gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int size, const gorocksdb_many_keys_filter_t* key_filter) {
     int i = 0;
-    gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
-
     char** keys;
     size_t* key_sizes;
     size_t key_size, cmp_size;
+
+    // todo: we malloc the prefetch size (improve it)
+    gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
     keys = (char**) malloc(size * sizeof(char*));
     key_sizes = (size_t*) malloc(size * sizeof(size_t));
 
@@ -131,10 +130,10 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
                 break;
             }
         }
+        keys[i] = (char*) malloc(key_size * sizeof(char));
+        memcpy(keys[i], key, key_size);
         key_sizes[i] = key_size;
-        keys[i] = (char*) malloc(key_sizes[i] * sizeof(char));
-        memcpy(keys[i], key, key_sizes[i]);
-
+        // next
         rocksdb_iter_next(iter);
     }
 
