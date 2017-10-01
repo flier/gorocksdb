@@ -105,6 +105,18 @@ func (m *ManyKeys) Keys() [][]byte {
 	return keys
 }
 
+func (m *ManyKeys) Values() [][]byte {
+	found := m.Found()
+	values := make([][]byte, found)
+
+	for i := uintptr(0); i < uintptr(found); i++ {
+		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.values)) + i*unsafe.Sizeof(m.c.values)))
+		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.value_sizes)) + i*unsafe.Sizeof(m.c.value_sizes)))
+		values[i] = charToByte(chars, size)
+	}
+	return values
+}
+
 //....
 func (iter *Iterator) NextManyKeys(size int) *ManyKeys {
 	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys(iter.c, C.int(size))}

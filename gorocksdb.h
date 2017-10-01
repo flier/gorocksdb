@@ -4,6 +4,8 @@
 typedef struct {
     char** keys;
     size_t* key_sizes;
+    char** values;
+    size_t* value_sizes;
     int found;
 
 } gorocksdb_many_keys_t;

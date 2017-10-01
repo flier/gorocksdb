@@ -70,13 +70,14 @@ func TestIteratorManyFOnKeyPrefix(t *testing.T) {
 	givenKeys := [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyB1")}
 	wo := NewDefaultWriteOptions()
 	for _, k := range givenKeys {
-		ensure.Nil(t, db.Put(wo, k, []byte("val")))
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
 	}
 
 	ro := NewDefaultReadOptions()
 	iter := db.NewIterator(ro)
 	defer iter.Close()
 	var actualKeys [][]byte
+	var actualValues [][]byte
 	iter.SeekToFirst()
 
 	manyKeys := iter.NextManyKeysF(2, []byte("keyA"), nil)
@@ -86,12 +87,18 @@ func TestIteratorManyFOnKeyPrefix(t *testing.T) {
 			copy(newK, k)
 			actualKeys = append(actualKeys, newK)
 		}
+		for _, v := range manyKeys.Values() {
+			newV := make([]byte, len(v))
+			copy(newV, v)
+			actualValues = append(actualValues, newV)
+		}
 		manyKeys.Destroy()
 		manyKeys = iter.NextManyKeysF(2, []byte("keyA"), nil)
 	}
 	manyKeys.Destroy()
 	ensure.Nil(t, iter.Err())
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3")})
+	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3")})
 }
 
 func TestIteratorManyFOnKeyEnd(t *testing.T) {
@@ -102,13 +109,14 @@ func TestIteratorManyFOnKeyEnd(t *testing.T) {
 	givenKeys := [][]byte{[]byte("A"), []byte("B"), []byte("C"), []byte("C1"), []byte("D")}
 	wo := NewDefaultWriteOptions()
 	for _, k := range givenKeys {
-		ensure.Nil(t, db.Put(wo, k, []byte("val")))
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
 	}
 
 	ro := NewDefaultReadOptions()
 	iter := db.NewIterator(ro)
 	defer iter.Close()
 	var actualKeys [][]byte
+	var actualValues [][]byte
 	iter.SeekToFirst()
 
 	manyKeys := iter.NextManyKeysF(2, nil, []byte("C1"))
@@ -118,12 +126,18 @@ func TestIteratorManyFOnKeyEnd(t *testing.T) {
 			copy(newK, k)
 			actualKeys = append(actualKeys, newK)
 		}
+		for _, v := range manyKeys.Values() {
+			newV := make([]byte, len(v))
+			copy(newV, v)
+			actualValues = append(actualValues, newV)
+		}
 		manyKeys.Destroy()
 		manyKeys = iter.NextManyKeysF(2, nil, []byte("C1"))
 	}
 	manyKeys.Destroy()
 	ensure.Nil(t, iter.Err())
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("A"), []byte("B"), []byte("C")})
+	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_A"), []byte("val_B"), []byte("val_C")})
 }
 
 func TestIteratorManyFOnKeyPrefixAndEnd(t *testing.T) {
@@ -134,13 +148,14 @@ func TestIteratorManyFOnKeyPrefixAndEnd(t *testing.T) {
 	givenKeys := [][]byte{[]byte("keyA"), []byte("keyB"), []byte("keyC"), []byte("keyC1")}
 	wo := NewDefaultWriteOptions()
 	for _, k := range givenKeys {
-		ensure.Nil(t, db.Put(wo, k, []byte("val")))
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
 	}
 
 	ro := NewDefaultReadOptions()
 	iter := db.NewIterator(ro)
 	defer iter.Close()
 	var actualKeys [][]byte
+	var actualValues [][]byte
 	iter.SeekToFirst()
 
 	manyKeys := iter.NextManyKeysF(2, []byte("key"), []byte("keyC1"))
@@ -150,10 +165,16 @@ func TestIteratorManyFOnKeyPrefixAndEnd(t *testing.T) {
 			copy(newK, k)
 			actualKeys = append(actualKeys, newK)
 		}
+		for _, v := range manyKeys.Values() {
+			newV := make([]byte, len(v))
+			copy(newV, v)
+			actualValues = append(actualValues, newV)
+		}
 		manyKeys.Destroy()
 		manyKeys = iter.NextManyKeysF(2, []byte("key"), []byte("keyC1"))
 	}
 	manyKeys.Destroy()
 	ensure.Nil(t, iter.Err())
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA"), []byte("keyB"), []byte("keyC")})
+	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA"), []byte("val_keyB"), []byte("val_keyC")})
 }

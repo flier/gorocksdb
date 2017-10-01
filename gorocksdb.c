@@ -90,22 +90,27 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, i
 
     many_keys->keys = keys;
     many_keys->key_sizes = key_sizes;
+    many_keys->values = NULL;
+    many_keys->value_sizes = 0;
     many_keys->found = i;
     return many_keys;
 }
 
 gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int size, const gorocksdb_many_keys_filter_t* key_filter) {
-    int i = 0;
-    char** keys;
-    size_t* key_sizes;
-    size_t key_size, cmp_size;
+    int i;
+    char** keys, **values;
+    size_t* key_sizes, *value_sizes;
+    size_t key_size, value_size, cmp_size;
 
     // todo: we malloc the prefetch size (improve it)
     gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
     keys = (char**) malloc(size * sizeof(char*));
     key_sizes = (size_t*) malloc(size * sizeof(size_t));
+    values = (char**) malloc(size * sizeof(char*));
+    value_sizes = (size_t*) malloc(size * sizeof(size_t));
 
-    for (i = 0; i < size; i++) {
+    i = 0;
+    while (i < size) {
         if (!rocksdb_iter_valid(iter)) {
             break;
         }
@@ -130,15 +135,28 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
                 break;
             }
         }
+        // Store key
         keys[i] = (char*) malloc(key_size * sizeof(char));
         memcpy(keys[i], key, key_size);
         key_sizes[i] = key_size;
+        // Get value and store it
+        const char* val = rocksdb_iter_value(iter, &value_size);
+        if (val != NULL) {
+            values[i] = (char*) malloc(value_size * sizeof(char));
+            memcpy(values[i], val, value_size);
+        } else {
+            values[i] = NULL;
+        }
+        value_sizes[i] = value_size;
         // next
         rocksdb_iter_next(iter);
+        i++;
     }
 
     many_keys->keys = keys;
     many_keys->key_sizes = key_sizes;
+    many_keys->values = values;
+    many_keys->value_sizes = value_sizes;
     many_keys->found = i;
     return many_keys;
 }
@@ -147,9 +165,15 @@ void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     int i;
     for (i = 0; i < many_keys->found; i++) {
         free(many_keys->keys[i]);
+        if (many_keys->values != NULL && many_keys->values[i] != NULL) {
+                free(many_keys->values[i]);
+        }
     }
-
     free(many_keys->keys);
     free(many_keys->key_sizes);
+    if (many_keys->values != NULL) {
+        free(many_keys->values);
+        free(many_keys->value_sizes);
+    }
     free(many_keys);
 }
