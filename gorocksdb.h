@@ -54,3 +54,18 @@ typedef struct {
 extern gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int size, const gorocksdb_many_keys_filter_t* key_filter);
 
 extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys);
+
+typedef struct {
+    char* key_from;
+    size_t key_from_s;
+    char* key_prefix;
+    size_t key_prefix_s;
+    char* key_end;
+    size_t key_end_s;
+
+} gorocksdb_keys_search_t;
+
+gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int max_per_iter);
+
+void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size);
+

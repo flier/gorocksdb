@@ -7,6 +7,7 @@ import "C"
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"unsafe"
 )
 
@@ -138,6 +139,58 @@ func (iter *Iterator) NextManyKeysF(size int, keyPrefix, keyEnd []byte) *ManyKey
 		cKeyFilter.key_end_s = C.size_t(len(keyEnd))
 	}
 	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(size), &cKeyFilter)}
+}
+
+type KeysSearch struct {
+	KeyFrom, KeyPrefix, KeyEnd []byte
+}
+
+type ManyManyKeys struct {
+	c    **C.gorocksdb_many_keys_t
+	size int
+}
+
+func (iter *Iterator) ManySearchKeys(searches []KeysSearch, maxIterPerSearch int) *ManyManyKeys {
+	nbSearches := len(searches)
+	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
+	for i, search := range searches {
+		cKSearch := C.gorocksdb_keys_search_t{}
+		cKFrom := C.CString(string(search.KeyFrom))
+		defer C.free(unsafe.Pointer(cKFrom))
+		cKSearch.key_from = cKFrom
+		cKSearch.key_from_s = C.size_t(len(search.KeyFrom))
+		if len(search.KeyPrefix) > 0 {
+			cKPrefix := C.CString(string(search.KeyPrefix))
+			defer C.free(unsafe.Pointer(cKPrefix))
+			cKSearch.key_prefix = cKPrefix
+			cKSearch.key_prefix_s = C.size_t(len(search.KeyPrefix))
+		}
+		if len(search.KeyEnd) > 0 {
+			cKEnd := C.CString(string(search.KeyEnd))
+			defer C.free(unsafe.Pointer(cKEnd))
+			cKSearch.key_end = cKEnd
+			cKSearch.key_end_s = C.size_t(len(search.KeyEnd))
+		}
+		cManyKeysSearches[i] = cKSearch
+	}
+	cManyManyKeys := C.gorocksdb_many_search_keys(iter.c,
+		(*C.gorocksdb_keys_search_t)(unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&cManyKeysSearches)).Data)),
+		C.int(nbSearches), C.int(maxIterPerSearch))
+
+	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
+}
+
+func (m ManyManyKeys) Result() []*ManyKeys {
+	result := make([]*ManyKeys, m.size)
+	for i := uintptr(0); i < uintptr(m.size); i++ {
+		manyKeys := *(**C.gorocksdb_many_keys_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c)) + i*unsafe.Sizeof(m.c)))
+		result[i] = &ManyKeys{c: manyKeys}
+	}
+	return result
+}
+
+func (m ManyManyKeys) Destroy() {
+	C.gorocksdb_destroy_many_many_keys(m.c, C.int(m.size))
 }
 
 // Prev moves the iterator to the previous sequential key in the database.

@@ -178,3 +178,147 @@ func TestIteratorManyFOnKeyPrefixAndEnd(t *testing.T) {
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA"), []byte("keyB"), []byte("keyC")})
 	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA"), []byte("val_keyB"), []byte("val_keyC")})
 }
+
+func TestIteratorManySearchKeys(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("A"), []byte("B"), []byte("C"), []byte("D"), []byte("E"), []byte("F")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	searches := make([]KeysSearch, 3)
+	searches[0] = KeysSearch{KeyFrom: []byte("A")}
+	searches[1] = KeysSearch{KeyFrom: []byte("D")}
+	searches[2] = KeysSearch{KeyFrom: []byte("Z")}
+
+	manyManyKeys := iter.ManySearchKeys(searches, 1000000)
+	defer manyManyKeys.Destroy()
+	result := manyManyKeys.Result()
+	if len(result) != len(searches) {
+		t.Fatalf("result len should be %d", len(searches))
+	}
+	ensure.DeepEqual(t, result[0].Found(), 6)
+	ensure.DeepEqual(t, result[0].Keys(), [][]byte{[]byte("A"), []byte("B"), []byte("C"), []byte("D"), []byte("E"), []byte("F")})
+	ensure.DeepEqual(t, result[0].Values(), [][]byte{[]byte("val_A"), []byte("val_B"), []byte("val_C"), []byte("val_D"), []byte("val_E"), []byte("val_F")})
+	ensure.DeepEqual(t, result[1].Found(), 3)
+	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("D"), []byte("E"), []byte("F")})
+	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_D"), []byte("val_E"), []byte("val_F")})
+	ensure.DeepEqual(t, result[2].Found(), 0)
+	ensure.DeepEqual(t, result[2].Keys(), [][]byte{})
+	ensure.DeepEqual(t, result[2].Values(), [][]byte{})
+}
+
+func TestIteratorManySearchKeysWithKeyPrefix(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("A1"), []byte("A2"), []byte("B1"), []byte("C1"), []byte("D1"), []byte("D2")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	searches := make([]KeysSearch, 4)
+	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyPrefix: []byte("A")}
+	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyPrefix: []byte("B")}
+	searches[2] = KeysSearch{KeyFrom: []byte("D"), KeyPrefix: []byte("D")}
+	searches[3] = KeysSearch{KeyFrom: []byte("Z"), KeyPrefix: []byte("Z")}
+
+	manyManyKeys := iter.ManySearchKeys(searches, 1000000)
+	defer manyManyKeys.Destroy()
+	result := manyManyKeys.Result()
+	if len(result) != len(searches) {
+		t.Fatalf("result len should be %d", len(searches))
+	}
+	ensure.DeepEqual(t, result[0].Found(), 2)
+	ensure.DeepEqual(t, result[0].Keys(), [][]byte{[]byte("A1"), []byte("A2")})
+	ensure.DeepEqual(t, result[0].Values(), [][]byte{[]byte("val_A1"), []byte("val_A2")})
+	ensure.DeepEqual(t, result[1].Found(), 1)
+	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("B1")})
+	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_B1")})
+	ensure.DeepEqual(t, result[2].Found(), 2)
+	ensure.DeepEqual(t, result[2].Keys(), [][]byte{[]byte("D1"), []byte("D2")})
+	ensure.DeepEqual(t, result[2].Values(), [][]byte{[]byte("val_D1"), []byte("val_D2")})
+	ensure.DeepEqual(t, result[3].Found(), 0)
+	ensure.DeepEqual(t, result[3].Keys(), [][]byte{})
+	ensure.DeepEqual(t, result[3].Values(), [][]byte{})
+}
+
+func TestIteratorManySearchKeysWithKeyEnd(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("A1"), []byte("A2"), []byte("A3"), []byte("B1"), []byte("B2"), []byte("B3")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	searches := make([]KeysSearch, 2)
+	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyEnd: []byte("A3")}
+	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyEnd: []byte("B2")}
+
+	manyManyKeys := iter.ManySearchKeys(searches, 1000000)
+	defer manyManyKeys.Destroy()
+	result := manyManyKeys.Result()
+	if len(result) != len(searches) {
+		t.Fatalf("result len should be %d", len(searches))
+	}
+	ensure.DeepEqual(t, result[0].Found(), 2)
+	ensure.DeepEqual(t, result[0].Keys(), [][]byte{[]byte("A1"), []byte("A2")})
+	ensure.DeepEqual(t, result[0].Values(), [][]byte{[]byte("val_A1"), []byte("val_A2")})
+	ensure.DeepEqual(t, result[1].Found(), 1)
+	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("B1")})
+	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_B1")})
+}
+
+func TestIteratorManySearchKeysWithKeyPrefixAndEnd(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("keyC"), []byte("keyC0"), []byte("keyC1")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	searches := make([]KeysSearch, 2)
+	searches[0] = KeysSearch{KeyFrom: []byte("keyC0"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1")}
+	searches[1] = KeysSearch{KeyFrom: []byte("k"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1")}
+
+	manyManyKeys := iter.ManySearchKeys(searches, 1000000)
+	defer manyManyKeys.Destroy()
+	result := manyManyKeys.Result()
+	if len(result) != len(searches) {
+		t.Fatalf("result len should be %d", len(searches))
+	}
+	ensure.DeepEqual(t, result[0].Found(), 1)
+	ensure.DeepEqual(t, result[0].Keys(), [][]byte{[]byte("keyC0")})
+	ensure.DeepEqual(t, result[0].Values(), [][]byte{[]byte("val_keyC0")})
+	ensure.DeepEqual(t, result[1].Found(), 2)
+	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("keyC"), []byte("keyC0")})
+	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_keyC"), []byte("val_keyC0")})
+}

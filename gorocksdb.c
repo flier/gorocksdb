@@ -177,3 +177,27 @@ void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     }
     free(many_keys);
 }
+
+gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int max_per_iter) {
+    int i;
+    gorocksdb_many_keys_filter_t key_filter;
+    gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
+    for (i=0; i < size; i++) {
+    	rocksdb_iter_seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
+    	key_filter.key_prefix = keys_searches[i].key_prefix;
+    	key_filter.key_prefix_s = keys_searches[i].key_prefix_s;
+    	key_filter.key_end = keys_searches[i].key_end;
+    	key_filter.key_end_s = keys_searches[i].key_end_s;
+    	result[i] = gorocksdb_iter_next_many_keys_f(iter, max_per_iter, &key_filter);
+    }
+    return result;
+}
+
+void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size) {
+    int i;
+    for (i = 0; i < size; i++) {
+        gorocksdb_destroy_many_keys(many_many_keys[i]);
+    }
+    free(many_many_keys);
+}
+
