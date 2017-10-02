@@ -143,6 +143,7 @@ func (iter *Iterator) NextManyKeysF(size int, keyPrefix, keyEnd []byte) *ManyKey
 
 type KeysSearch struct {
 	KeyFrom, KeyPrefix, KeyEnd []byte
+	Limit int
 }
 
 type ManyManyKeys struct {
@@ -150,11 +151,11 @@ type ManyManyKeys struct {
 	size int
 }
 
-func (iter *Iterator) ManySearchKeys(searches []KeysSearch, maxIterPerSearch int) *ManyManyKeys {
+func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
 	for i, search := range searches {
-		cKSearch := C.gorocksdb_keys_search_t{}
+		cKSearch := C.gorocksdb_keys_search_t{limit:C.int(search.Limit)}
 		cKFrom := C.CString(string(search.KeyFrom))
 		defer C.free(unsafe.Pointer(cKFrom))
 		cKSearch.key_from = cKFrom
@@ -175,7 +176,7 @@ func (iter *Iterator) ManySearchKeys(searches []KeysSearch, maxIterPerSearch int
 	}
 	cManyManyKeys := C.gorocksdb_many_search_keys(iter.c,
 		(*C.gorocksdb_keys_search_t)(unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&cManyKeysSearches)).Data)),
-		C.int(nbSearches), C.int(maxIterPerSearch))
+		C.int(nbSearches))
 
 	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
 }
