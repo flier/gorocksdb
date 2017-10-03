@@ -362,3 +362,33 @@ func TestIteratorManySearchKeysWithKeyPrefixAndEnd(t *testing.T) {
 	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("keyC"), []byte("keyC0")})
 	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_keyC"), []byte("val_keyC0")})
 }
+
+func TestIteratorManyKeysEach(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	iter.SeekToFirst()
+	manyKeys := iter.NextManyKeysF(-1, []byte("keyA"), nil)
+
+	actualKeys := [][]byte{}
+	actualValues := [][]byte{}
+	manyKeys.Each(func(key []byte, value []byte) {
+		actualKeys = append(actualKeys, key)
+		actualValues = append(actualValues, value)
+	})
+
+	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")})
+	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3"), []byte("val_keyA4")})
+	manyKeys.Destroy()
+}
