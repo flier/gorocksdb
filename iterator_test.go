@@ -383,7 +383,7 @@ func TestIteratorManyKeysEach(t *testing.T) {
 
 	actualKeys := [][]byte{}
 	actualValues := [][]byte{}
-	manyKeys.Each(func(key []byte, value []byte) {
+	manyKeys.Each(func(i int, key []byte, value []byte) {
 		actualKeys = append(actualKeys, key)
 		actualValues = append(actualValues, value)
 	})
