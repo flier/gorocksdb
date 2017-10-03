@@ -96,7 +96,7 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, i
     return many_keys;
 }
 
-gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int size, const gorocksdb_many_keys_filter_t* key_filter) {
+gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter) {
     int i;
     char** keys, **values;
     size_t* key_sizes, *value_sizes;
@@ -104,16 +104,18 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
 
     // todo: we malloc the prefetch size (improve it)
     gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
+
+    int size = 512;
+    if (limit > 0 && limit < size) {
+        size = limit;
+    }
     keys = (char**) malloc(size * sizeof(char*));
     key_sizes = (size_t*) malloc(size * sizeof(size_t));
     values = (char**) malloc(size * sizeof(char*));
     value_sizes = (size_t*) malloc(size * sizeof(size_t));
 
     i = 0;
-    while (i < size) {
-        if (!rocksdb_iter_valid(iter)) {
-            break;
-        }
+    while (rocksdb_iter_valid(iter)) {
         // Get key
         const char* key = rocksdb_iter_key(iter, &key_size);
         // Check filter
@@ -136,6 +138,14 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
             }
         }
         // Store key
+        if (i == size) {
+            // realloc 2x existing size
+            size = size*2;
+            keys = (char**) realloc(keys, size * sizeof(char*));
+            key_sizes = (size_t*) realloc(key_sizes, size * sizeof(size_t));
+            values = (char**) realloc(values, size * sizeof(char*));
+            value_sizes = (size_t*) realloc(value_sizes, size * sizeof(size_t));
+        }
         keys[i] = (char*) malloc(key_size * sizeof(char));
         memcpy(keys[i], key, key_size);
         key_sizes[i] = key_size;
@@ -148,9 +158,14 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
             values[i] = NULL;
         }
         value_sizes[i] = value_size;
-        // next
-        rocksdb_iter_next(iter);
         i++;
+        // seek next
+        rocksdb_iter_next(iter);
+
+        // check limit
+        if (limit > 0 && i == limit) {
+            break;
+        }
     }
 
     many_keys->keys = keys;

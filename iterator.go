@@ -124,7 +124,7 @@ func (iter *Iterator) NextManyKeys(size int) *ManyKeys {
 }
 
 //....
-func (iter *Iterator) NextManyKeysF(size int, keyPrefix, keyEnd []byte) *ManyKeys {
+func (iter *Iterator) NextManyKeysF(limit int, keyPrefix, keyEnd []byte) *ManyKeys {
 	cKeyFilter := C.gorocksdb_many_keys_filter_t{}
 	if len(keyPrefix) > 0 {
 		cKeyPrefix := C.CString(string(keyPrefix))
@@ -138,7 +138,7 @@ func (iter *Iterator) NextManyKeysF(size int, keyPrefix, keyEnd []byte) *ManyKey
 		cKeyFilter.key_end = cKeyEnd
 		cKeyFilter.key_end_s = C.size_t(len(keyEnd))
 	}
-	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(size), &cKeyFilter)}
+	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(limit), &cKeyFilter)}
 }
 
 type KeysSearch struct {

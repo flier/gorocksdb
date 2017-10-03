@@ -101,6 +101,46 @@ func TestIteratorManyFOnKeyPrefix(t *testing.T) {
 	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3")})
 }
 
+func TestIteratorManyFWithLimit(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	iter.SeekToFirst()
+	manyKeys := iter.NextManyKeysF(-1, []byte("keyA"), nil)
+	ensure.DeepEqual(t, manyKeys.Keys(), [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")})
+	ensure.DeepEqual(t, manyKeys.Values(), [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3"), []byte("val_keyA4")})
+	manyKeys.Destroy()
+
+	iter.SeekToFirst()
+	manyKeys = iter.NextManyKeysF(0, []byte("keyA"), nil)
+	ensure.DeepEqual(t, manyKeys.Keys(), [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")})
+	ensure.DeepEqual(t, manyKeys.Values(), [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3"), []byte("val_keyA4")})
+	manyKeys.Destroy()
+
+	iter.SeekToFirst()
+	manyKeys = iter.NextManyKeysF(2, []byte("keyA"), nil)
+	ensure.DeepEqual(t, manyKeys.Keys(), [][]byte{[]byte("keyA1"), []byte("keyA2")})
+	ensure.DeepEqual(t, manyKeys.Values(), [][]byte{[]byte("val_keyA1"), []byte("val_keyA2")})
+	manyKeys.Destroy()
+
+	iter.SeekToFirst()
+	manyKeys = iter.NextManyKeysF(20, []byte("keyA"), nil)
+	ensure.DeepEqual(t, manyKeys.Keys(), [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")})
+	ensure.DeepEqual(t, manyKeys.Values(), [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3"), []byte("val_keyA4")})
+	manyKeys.Destroy()
+}
+
 func TestIteratorManyFOnKeyEnd(t *testing.T) {
 	db := newTestDB(t, "TestIterator", nil)
 	defer db.Close()
@@ -195,9 +235,9 @@ func TestIteratorManySearchKeys(t *testing.T) {
 	defer iter.Close()
 
 	searches := make([]KeysSearch, 3)
-	searches[0] = KeysSearch{KeyFrom: []byte("A"), Limit:1000}
-	searches[1] = KeysSearch{KeyFrom: []byte("D"), Limit:1000}
-	searches[2] = KeysSearch{KeyFrom: []byte("Z"), Limit:1000}
+	searches[0] = KeysSearch{KeyFrom: []byte("A"), Limit: 1000}
+	searches[1] = KeysSearch{KeyFrom: []byte("D"), Limit: 1000}
+	searches[2] = KeysSearch{KeyFrom: []byte("Z"), Limit: 1000}
 
 	manyManyKeys := iter.ManySearchKeys(searches)
 	defer manyManyKeys.Destroy()
@@ -232,10 +272,10 @@ func TestIteratorManySearchKeysWithKeyPrefix(t *testing.T) {
 	defer iter.Close()
 
 	searches := make([]KeysSearch, 4)
-	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyPrefix: []byte("A"), Limit:1000}
-	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyPrefix: []byte("B"), Limit:1000}
-	searches[2] = KeysSearch{KeyFrom: []byte("D"), KeyPrefix: []byte("D"), Limit:1000}
-	searches[3] = KeysSearch{KeyFrom: []byte("Z"), KeyPrefix: []byte("Z"), Limit:1000}
+	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyPrefix: []byte("A"), Limit: 1000}
+	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyPrefix: []byte("B"), Limit: 1000}
+	searches[2] = KeysSearch{KeyFrom: []byte("D"), KeyPrefix: []byte("D"), Limit: 1000}
+	searches[3] = KeysSearch{KeyFrom: []byte("Z"), KeyPrefix: []byte("Z"), Limit: 1000}
 
 	manyManyKeys := iter.ManySearchKeys(searches)
 	defer manyManyKeys.Destroy()
@@ -273,8 +313,8 @@ func TestIteratorManySearchKeysWithKeyEnd(t *testing.T) {
 	defer iter.Close()
 
 	searches := make([]KeysSearch, 2)
-	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyEnd: []byte("A3"), Limit:1000}
-	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyEnd: []byte("B2"), Limit:1000}
+	searches[0] = KeysSearch{KeyFrom: []byte("A"), KeyEnd: []byte("A3"), Limit: 1000}
+	searches[1] = KeysSearch{KeyFrom: []byte("B"), KeyEnd: []byte("B2"), Limit: 1000}
 
 	manyManyKeys := iter.ManySearchKeys(searches)
 	defer manyManyKeys.Destroy()
@@ -306,8 +346,8 @@ func TestIteratorManySearchKeysWithKeyPrefixAndEnd(t *testing.T) {
 	defer iter.Close()
 
 	searches := make([]KeysSearch, 2)
-	searches[0] = KeysSearch{KeyFrom: []byte("keyC0"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1"), Limit:1000}
-	searches[1] = KeysSearch{KeyFrom: []byte("k"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1"), Limit:1000}
+	searches[0] = KeysSearch{KeyFrom: []byte("keyC0"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1"), Limit: 1000}
+	searches[1] = KeysSearch{KeyFrom: []byte("k"), KeyPrefix: []byte("keyC"), KeyEnd: []byte("keyC1"), Limit: 1000}
 
 	manyManyKeys := iter.ManySearchKeys(searches)
 	defer manyManyKeys.Destroy()
