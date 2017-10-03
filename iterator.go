@@ -120,7 +120,7 @@ func (m *ManyKeys) Values() [][]byte {
 	return values
 }
 
-func (m *ManyKeys) Each(each func(i int, key []byte, value []byte) bool) {
+func (m *ManyKeys) Each(each func(i int, key []byte, value []byte) bool) bool {
 	found := m.Found()
 	for i := uintptr(0); i < uintptr(found); i++ {
 		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.keys)) + i*unsafe.Sizeof(m.c.keys)))
@@ -132,9 +132,10 @@ func (m *ManyKeys) Each(each func(i int, key []byte, value []byte) bool) {
 		value := charToByte(chars, size)
 
 		if !each(int(i), key, value) {
-			break
+			return false
 		}
 	}
+	return true
 }
 
 //....

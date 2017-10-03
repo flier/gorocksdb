@@ -383,22 +383,24 @@ func TestIteratorManyKeysEach(t *testing.T) {
 
 	actualKeys := [][]byte{}
 	actualValues := [][]byte{}
-	manyKeys.Each(func(i int, key []byte, value []byte) bool {
+	all := manyKeys.Each(func(i int, key []byte, value []byte) bool {
 		actualKeys = append(actualKeys, key)
 		actualValues = append(actualValues, value)
 		return true
 	})
+	ensure.DeepEqual(t, all, true)
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA1"), []byte("keyA2"), []byte("keyA3"), []byte("keyA4")})
 	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA1"), []byte("val_keyA2"), []byte("val_keyA3"), []byte("val_keyA4")})
 
 	actualKeys = nil
 	actualValues = nil
 	limit := 2
-	manyKeys.Each(func(i int, key []byte, value []byte) bool {
+	all = manyKeys.Each(func(i int, key []byte, value []byte) bool {
 		actualKeys = append(actualKeys, key)
 		actualValues = append(actualValues, value)
 		return len(actualKeys) != limit
 	})
+	ensure.DeepEqual(t, all, false)
 	ensure.DeepEqual(t, actualKeys, [][]byte{[]byte("keyA1"), []byte("keyA2")})
 	ensure.DeepEqual(t, actualValues, [][]byte{[]byte("val_keyA1"), []byte("val_keyA2")})
 
