@@ -81,6 +81,8 @@ func (iter *Iterator) Next() {
 	C.rocksdb_iter_next(iter.c)
 }
 
+var ManyKeysPageAllocSize int = 512
+
 type ManyKeys struct {
 	c *C.gorocksdb_many_keys_t
 }
@@ -138,12 +140,12 @@ func (iter *Iterator) NextManyKeysF(limit int, keyPrefix, keyEnd []byte) *ManyKe
 		cKeyFilter.key_end = cKeyEnd
 		cKeyFilter.key_end_s = C.size_t(len(keyEnd))
 	}
-	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(limit), &cKeyFilter)}
+	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(limit), &cKeyFilter, C.int(ManyKeysPageAllocSize))}
 }
 
 type KeysSearch struct {
 	KeyFrom, KeyPrefix, KeyEnd []byte
-	Limit int
+	Limit                      int
 }
 
 type ManyManyKeys struct {
@@ -154,30 +156,35 @@ type ManyManyKeys struct {
 func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
-	for i, search := range searches {
-		cKSearch := C.gorocksdb_keys_search_t{limit:C.int(search.Limit)}
-		cKFrom := C.CString(string(search.KeyFrom))
-		defer C.free(unsafe.Pointer(cKFrom))
-		cKSearch.key_from = cKFrom
-		cKSearch.key_from_s = C.size_t(len(search.KeyFrom))
-		if len(search.KeyPrefix) > 0 {
-			cKPrefix := C.CString(string(search.KeyPrefix))
-			defer C.free(unsafe.Pointer(cKPrefix))
-			cKSearch.key_prefix = cKPrefix
-			cKSearch.key_prefix_s = C.size_t(len(search.KeyPrefix))
+	for i := range searches {
+		cKSearch := C.gorocksdb_keys_search_t{limit: C.int(searches[i].Limit)}
+		cKSearch.key_from = C.CString(string(searches[i].KeyFrom))
+		cKSearch.key_from_s = C.size_t(len(searches[i].KeyFrom))
+		if len(searches[i].KeyPrefix) > 0 {
+			cKSearch.key_prefix = C.CString(string(searches[i].KeyPrefix))
+			cKSearch.key_prefix_s = C.size_t(len(searches[i].KeyPrefix))
 		}
-		if len(search.KeyEnd) > 0 {
-			cKEnd := C.CString(string(search.KeyEnd))
-			defer C.free(unsafe.Pointer(cKEnd))
-			cKSearch.key_end = cKEnd
-			cKSearch.key_end_s = C.size_t(len(search.KeyEnd))
+		if len(searches[i].KeyEnd) > 0 {
+			cKSearch.key_end = C.CString(string(searches[i].KeyEnd))
+			cKSearch.key_end_s = C.size_t(len(searches[i].KeyEnd))
 		}
 		cManyKeysSearches[i] = cKSearch
 	}
 	cManyManyKeys := C.gorocksdb_many_search_keys(iter.c,
 		(*C.gorocksdb_keys_search_t)(unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&cManyKeysSearches)).Data)),
-		C.int(nbSearches))
-
+		C.int(nbSearches),
+		C.int(ManyKeysPageAllocSize),
+	)
+	// free
+	for i := range searches {
+		C.free(unsafe.Pointer(cManyKeysSearches[i].key_from))
+		if len(searches[i].KeyPrefix) > 0 {
+			C.free(unsafe.Pointer(cManyKeysSearches[i].key_prefix))
+		}
+		if len(searches[i].KeyEnd) > 0 {
+			C.free(unsafe.Pointer(cManyKeysSearches[i].key_end))
+		}
+	}
 	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
 }
 

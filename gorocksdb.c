@@ -96,7 +96,7 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, i
     return many_keys;
 }
 
-gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter) {
+gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size) {
     int i;
     char** keys, **values;
     size_t* key_sizes, *value_sizes;
@@ -105,7 +105,10 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
     // todo: we malloc the prefetch size (improve it)
     gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
 
-    int size = 512;
+    int size = page_alloc_size;
+    if (size <= 0) {
+        size = 512;
+    }
     if (limit > 0 && limit < size) {
         size = limit;
     }
@@ -193,7 +196,7 @@ void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     free(many_keys);
 }
 
-gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size) {
+gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size) {
     int i;
     gorocksdb_many_keys_filter_t key_filter;
     gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
@@ -203,7 +206,7 @@ gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, con
     	key_filter.key_prefix_s = keys_searches[i].key_prefix_s;
     	key_filter.key_end = keys_searches[i].key_end;
     	key_filter.key_end_s = keys_searches[i].key_end_s;
-    	result[i] = gorocksdb_iter_next_many_keys_f(iter, keys_searches[i].limit, &key_filter);
+    	result[i] = gorocksdb_iter_next_many_keys_f(iter, keys_searches[i].limit, &key_filter, page_alloc_size);
     }
     return result;
 }
