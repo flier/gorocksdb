@@ -179,7 +179,7 @@ gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter,
     return many_keys;
 }
 
-void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
+extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     int i;
     for (i = 0; i < many_keys->found; i++) {
         free(many_keys->keys[i]);
@@ -196,7 +196,7 @@ void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     free(many_keys);
 }
 
-gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size) {
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size) {
     int i;
     gorocksdb_many_keys_filter_t key_filter;
     gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
@@ -211,7 +211,7 @@ gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, con
     return result;
 }
 
-void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size) {
+extern void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size) {
     int i;
     for (i = 0; i < size; i++) {
         gorocksdb_destroy_many_keys(many_many_keys[i]);
@@ -219,3 +219,28 @@ void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, in
     free(many_many_keys);
 }
 
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
+    rocksdb_iterator_t* iter,
+    char** key_froms,
+    size_t* key_from_s,
+    char** key_prefixes,
+    size_t* key_prefix_s,
+    char** key_ends,
+    size_t* key_end_s,
+    int* limits,
+    int size,
+    int page_alloc_size
+) {
+    int i;
+    gorocksdb_many_keys_filter_t key_filter;
+    gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
+    for (i=0; i < size; i++) {
+    	rocksdb_iter_seek(iter, key_froms[i], key_from_s[i]);
+    	key_filter.key_prefix = key_prefixes[i];
+    	key_filter.key_prefix_s = key_prefix_s[i];
+    	key_filter.key_end = key_ends[i];
+    	key_filter.key_end_s = key_end_s[i];
+    	result[i] = gorocksdb_iter_next_many_keys_f(iter, limits[i], &key_filter, page_alloc_size);
+    }
+    return result;
+}

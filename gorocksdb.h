@@ -55,6 +55,8 @@ extern gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t
 
 extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys);
 
+/* Batch searches */
+
 typedef struct {
     char* key_from;
     size_t key_from_s;
@@ -66,7 +68,24 @@ typedef struct {
 
 } gorocksdb_keys_search_t;
 
-gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size);
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(
+    rocksdb_iterator_t* iter,
+    const gorocksdb_keys_search_t* keys_searches,
+    int size,
+    int page_alloc_size
+);
 
-void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size);
+gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
+    rocksdb_iterator_t* iter,
+    char** key_froms,
+    size_t* key_from_s,
+    char** key_prefixes,
+    size_t* key_prefix_s,
+    char** key_ends,
+    size_t* key_end_s,
+    int* limits,
+    int size,
+    int page_alloc_size
+);
 
+extern void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size);
