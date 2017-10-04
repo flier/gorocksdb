@@ -171,7 +171,7 @@ type ManyManyKeys struct {
 	size int
 }
 
-func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
+func (iter *Iterator) ManySearchKeysV1(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
 	for i := range searches {
@@ -203,6 +203,45 @@ func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
 			C.free(unsafe.Pointer(cManyKeysSearches[i].key_end))
 		}
 	}
+	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
+}
+
+func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
+	nbSearches := len(searches)
+
+	cKeyFroms := C.malloc(C.size_t(nbSearches) * C.size_t(unsafe.Sizeof(uintptr(0))))
+	defer C.free(cKeyFroms)
+	cKeyPrefixes := C.malloc(C.size_t(nbSearches) * C.size_t(unsafe.Sizeof(uintptr(0))))
+	defer C.free(cKeyPrefixes)
+	cKeyEnds := C.malloc(C.size_t(nbSearches) * C.size_t(unsafe.Sizeof(uintptr(0))))
+	defer C.free(cKeyEnds)
+	cKeyFromSizes := make([]C.size_t, nbSearches)
+	cKeyPrefixSizes := make([]C.size_t, nbSearches)
+	cKeyEndSizes := make([]C.size_t, nbSearches)
+	cLimits := make([]C.int, nbSearches)
+
+	for i := uintptr(0); i < uintptr(nbSearches); i++ {
+		search := searches[i]
+		*(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cKeyFroms)) + i*unsafe.Sizeof(cKeyFroms))) = byteToChar(search.KeyFrom)
+		*(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cKeyPrefixes)) + i*unsafe.Sizeof(cKeyPrefixes))) = byteToChar(search.KeyPrefix)
+		*(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cKeyEnds)) + i*unsafe.Sizeof(cKeyEnds))) = byteToChar(search.KeyEnd)
+		cKeyFromSizes[i] = C.size_t(len(searches[i].KeyFrom))
+		cKeyPrefixSizes[i] = C.size_t(len(searches[i].KeyPrefix))
+		cKeyEndSizes[i] = C.size_t(len(searches[i].KeyEnd))
+		cLimits[i] = C.int(searches[i].Limit)
+	}
+	cManyManyKeys := C.gorocksdb_many_search_keys_raw(
+		iter.c,
+		(**C.char)(unsafe.Pointer(cKeyFroms)),
+		(*C.size_t)(unsafe.Pointer(&cKeyFromSizes[0])),
+		(**C.char)(unsafe.Pointer(cKeyPrefixes)),
+		(*C.size_t)(unsafe.Pointer(&cKeyPrefixSizes[0])),
+		(**C.char)(unsafe.Pointer(cKeyEnds)),
+		(*C.size_t)(unsafe.Pointer(&cKeyEndSizes[0])),
+		(*C.int)(unsafe.Pointer(&cLimits[0])),
+		C.int(nbSearches),
+		C.int(ManyKeysPageAllocSize),
+	)
 	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
 }
 
