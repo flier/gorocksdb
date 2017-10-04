@@ -171,7 +171,7 @@ type ManyManyKeys struct {
 	size int
 }
 
-func (iter *Iterator) ManySearchKeysV1(searches []KeysSearch) *ManyManyKeys {
+func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
 	for i := range searches {
@@ -206,7 +206,7 @@ func (iter *Iterator) ManySearchKeysV1(searches []KeysSearch) *ManyManyKeys {
 	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
 }
 
-func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
+func (iter *Iterator) ManySearchKeysExp(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 
 	cKeyFroms := C.malloc(C.size_t(nbSearches) * C.size_t(unsafe.Sizeof(uintptr(0))))
