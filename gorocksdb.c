@@ -244,3 +244,32 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
     }
     return result;
 }
+
+void gorocksdb_writebatch_put_many(
+    rocksdb_writebatch_t* batch,
+    size_t num_pairs,
+    char** keys,
+    size_t* key_sizes,
+    char** values,
+    size_t* value_sizes
+) {
+    int i;
+    for (i=0; i < num_pairs; i++) {
+        rocksdb_writebatch_put(batch, keys[i], key_sizes[i], values[i], value_sizes[i]);
+    }
+}
+
+void gorocksdb_writebatch_put_many_cf(
+    rocksdb_writebatch_t* batch,
+    rocksdb_column_family_handle_t* cf,
+    size_t num_pairs,
+    char** keys,
+    size_t* key_sizes,
+    char** values,
+    size_t* value_sizes
+) {
+    int i;
+    for (i=0; i < num_pairs; i++) {
+        rocksdb_writebatch_put_cf(batch, cf, keys[i], key_sizes[i], values[i], value_sizes[i]);
+    }
+}

@@ -2,7 +2,6 @@ package gorocksdb
 
 import "C"
 import (
-	"fmt"
 	"reflect"
 	"unsafe"
 )
@@ -53,14 +52,11 @@ func byteSliceToArray(vals [][]byte) (**C.char, *C.size_t) {
 	}
 
 	cCharBuf := C.malloc(C.size_t(unsafe.Sizeof(chars[0])) * C.size_t(len(chars)))
-	copied := copy(((*[1 << 32]*C.char)(cCharBuf))[:], chars)
-	fmt.Println("COPIED X BYTES:", copied)
+	copy(((*[1 << 32]*C.char)(cCharBuf))[:], chars)
 
 	cChars := (**C.char)(cCharBuf)
 
 	cSizes := (*C.size_t)(unsafe.Pointer(&sizes[0]))
-	fmt.Println("sizes", sizes)
-	fmt.Println("chars", chars)
 	return cChars, cSizes
 
 }

@@ -89,3 +89,22 @@ gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
 );
 
 extern void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size);
+
+void gorocksdb_writebatch_put_many( 
+    rocksdb_writebatch_t* batch,
+    size_t num_pairs, 
+    char** keys,
+    size_t* key_sizes, 
+    char** values, 
+    size_t* value_sizes
+);
+
+void gorocksdb_writebatch_put_many_cf( 
+    rocksdb_writebatch_t* batch,
+    rocksdb_column_family_handle_t* cf, 
+    size_t num_pairs, 
+    char** keys,
+    size_t* key_sizes, 
+    char** values, 
+    size_t* value_sizes
+);

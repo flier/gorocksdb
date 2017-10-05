@@ -1,15 +1,18 @@
 package gorocksdb
 
 // #include "rocksdb/c.h"
+// #include "gorocksdb.h"
 import "C"
 import (
 	"errors"
 	"io"
+	"unsafe"
 )
 
 // WriteBatch is a batching of Puts, Merges and Deletes.
 type WriteBatch struct {
-	c *C.rocksdb_writebatch_t
+	c          *C.rocksdb_writebatch_t
+	charArrays []**C.char
 }
 
 // NewWriteBatch create a WriteBatch object.
@@ -19,7 +22,7 @@ func NewWriteBatch() *WriteBatch {
 
 // NewNativeWriteBatch create a WriteBatch object.
 func NewNativeWriteBatch(c *C.rocksdb_writebatch_t) *WriteBatch {
-	return &WriteBatch{c}
+	return &WriteBatch{c: c}
 }
 
 // WriteBatchFrom creates a write batch from a serialized WriteBatch.
@@ -41,34 +44,38 @@ func (wb *WriteBatch) PutCF(cf *ColumnFamilyHandle, key, value []byte) {
 	C.rocksdb_writebatch_put_cf(wb.c, cf.c, cKey, C.size_t(len(key)), cValue, C.size_t(len(value)))
 }
 
-// Putv queues many key and value pairs
-func (wb *WriteBatch) Putv(keys, values [][]byte) error {
+// PutMany queues many key and value pairs
+func (wb *WriteBatch) PutMany(keys, values [][]byte) error {
 	if len(keys) != len(values) {
 		return errors.New("Number of keys and values should be the same")
 	}
-	numKeys := C.int(len(keys))
+	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := byteSliceToArray(keys)
 	cValues, cValueSizes := byteSliceToArray(values)
-	C.rocksdb_writebatch_putv(
+	wb.charArrays = append(wb.charArrays, cKeys, cValues)
+	C.gorocksdb_writebatch_put_many(
 		wb.c,
-		numKeys, cKeys, cKeySizes,
-		numKeys, cValues, cValueSizes,
+		numPairs,
+		cKeys, cKeySizes,
+		cValues, cValueSizes,
 	)
 	return nil
 }
 
-// PutvCF queues many key and value pairs in a column family
-func (wb *WriteBatch) PutvCF(cf *ColumnFamilyHandle, keys, values [][]byte) error {
+// PutManyCF queues many key and value pairs in a column family
+func (wb *WriteBatch) PutManyCF(cf *ColumnFamilyHandle, keys, values [][]byte) error {
 	if len(keys) != len(values) {
 		return errors.New("Number of keys and values should be the same")
 	}
-	numKeys := C.int(len(keys))
+	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := byteSliceToArray(keys)
 	cValues, cValueSizes := byteSliceToArray(values)
-	C.rocksdb_writebatch_putv_cf(
+	wb.charArrays = append(wb.charArrays, cKeys, cValues)
+	C.gorocksdb_writebatch_put_many_cf(
 		wb.c, cf.c,
-		numKeys, cKeys, cKeySizes,
-		numKeys, cValues, cValueSizes,
+		numPairs,
+		cKeys, cKeySizes,
+		cValues, cValueSizes,
 	)
 	return nil
 }
@@ -129,6 +136,9 @@ func (wb *WriteBatch) Clear() {
 // Destroy deallocates the WriteBatch object.
 func (wb *WriteBatch) Destroy() {
 	C.rocksdb_writebatch_destroy(wb.c)
+	for _, arr := range wb.charArrays {
+		C.free(unsafe.Pointer(arr))
+	}
 	wb.c = nil
 }
 
