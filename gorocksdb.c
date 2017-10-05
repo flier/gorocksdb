@@ -1,5 +1,6 @@
 #include "gorocksdb.h"
 #include "_cgo_export.h"
+#include <string.h>
 
 /* Base */
 
@@ -63,4 +64,183 @@ rocksdb_slicetransform_t* gorocksdb_slicetransform_create(uintptr_t idx) {
     	(unsigned char (*)(void*, const char*, size_t))(gorocksdb_slicetransform_in_domain),
     	(unsigned char (*)(void*, const char*, size_t))(gorocksdb_slicetransform_in_range),
     	(const char* (*)(void*))(gorocksdb_slicetransform_name));
+}
+
+gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, int size) {
+    int i = 0;
+    gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
+
+    char** keys;
+    size_t* key_sizes;
+    keys = (char**) malloc(size * sizeof(char*));
+    key_sizes = (size_t*) malloc(size * sizeof(size_t));
+
+    for (i = 0; i < size; i++) {
+        if (!rocksdb_iter_valid(iter)) {
+            break;
+        }
+
+        // Stuff
+        const char* key = rocksdb_iter_key(iter, &key_sizes[i]);
+        keys[i] = (char*) malloc(key_sizes[i] * sizeof(char));
+        memcpy(keys[i], key, key_sizes[i]);
+
+        rocksdb_iter_next(iter);
+    }
+
+    many_keys->keys = keys;
+    many_keys->key_sizes = key_sizes;
+    many_keys->values = NULL;
+    many_keys->value_sizes = 0;
+    many_keys->found = i;
+    return many_keys;
+}
+
+gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size) {
+    int i;
+    char** keys, **values;
+    size_t* key_sizes, *value_sizes;
+    size_t key_size, value_size, cmp_size;
+
+    // todo: we malloc the prefetch size (improve it)
+    gorocksdb_many_keys_t* many_keys = (gorocksdb_many_keys_t*) malloc(sizeof(gorocksdb_many_keys_t));
+
+    int size = page_alloc_size;
+    if (size <= 0) {
+        size = 512;
+    }
+    if (limit > 0 && limit < size) {
+        size = limit;
+    }
+    keys = (char**) malloc(size * sizeof(char*));
+    key_sizes = (size_t*) malloc(size * sizeof(size_t));
+    values = (char**) malloc(size * sizeof(char*));
+    value_sizes = (size_t*) malloc(size * sizeof(size_t));
+
+    i = 0;
+    while (rocksdb_iter_valid(iter)) {
+        // Get key
+        const char* key = rocksdb_iter_key(iter, &key_size);
+        // Check filter
+        if (key_filter->key_prefix_s > 0) {
+            if (key_size < key_filter->key_prefix_s) {
+                break;
+            }
+            if (memcmp(key_filter->key_prefix, key, key_filter->key_prefix_s) != 0) {
+                break;
+            }
+        }
+        if (key_filter->key_end_s > 0) {
+            cmp_size = key_size > key_filter->key_end_s ? key_filter->key_end_s : key_size;
+            int c;
+            c = memcmp(key, key_filter->key_end, cmp_size);
+            if (c == 0 && key_filter->key_end_s == key_size) {
+                break;
+            } else if (c > 0) {
+                break;
+            }
+        }
+        // Store key
+        if (i == size) {
+            // realloc 2x existing size
+            size = size*2;
+            keys = (char**) realloc(keys, size * sizeof(char*));
+            key_sizes = (size_t*) realloc(key_sizes, size * sizeof(size_t));
+            values = (char**) realloc(values, size * sizeof(char*));
+            value_sizes = (size_t*) realloc(value_sizes, size * sizeof(size_t));
+        }
+        keys[i] = (char*) malloc(key_size * sizeof(char));
+        memcpy(keys[i], key, key_size);
+        key_sizes[i] = key_size;
+        // Get value and store it
+        const char* val = rocksdb_iter_value(iter, &value_size);
+        if (val != NULL) {
+            values[i] = (char*) malloc(value_size * sizeof(char));
+            memcpy(values[i], val, value_size);
+        } else {
+            values[i] = NULL;
+        }
+        value_sizes[i] = value_size;
+        i++;
+        // seek next
+        rocksdb_iter_next(iter);
+
+        // check limit
+        if (limit > 0 && i == limit) {
+            break;
+        }
+    }
+
+    many_keys->keys = keys;
+    many_keys->key_sizes = key_sizes;
+    many_keys->values = values;
+    many_keys->value_sizes = value_sizes;
+    many_keys->found = i;
+    return many_keys;
+}
+
+extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
+    int i;
+    for (i = 0; i < many_keys->found; i++) {
+        free(many_keys->keys[i]);
+        if (many_keys->values != NULL && many_keys->values[i] != NULL) {
+                free(many_keys->values[i]);
+        }
+    }
+    free(many_keys->keys);
+    free(many_keys->key_sizes);
+    if (many_keys->values != NULL) {
+        free(many_keys->values);
+        free(many_keys->value_sizes);
+    }
+    free(many_keys);
+}
+
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size) {
+    int i;
+    gorocksdb_many_keys_filter_t key_filter;
+    gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
+    for (i=0; i < size; i++) {
+    	rocksdb_iter_seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
+    	key_filter.key_prefix = keys_searches[i].key_prefix;
+    	key_filter.key_prefix_s = keys_searches[i].key_prefix_s;
+    	key_filter.key_end = keys_searches[i].key_end;
+    	key_filter.key_end_s = keys_searches[i].key_end_s;
+    	result[i] = gorocksdb_iter_next_many_keys_f(iter, keys_searches[i].limit, &key_filter, page_alloc_size);
+    }
+    return result;
+}
+
+extern void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size) {
+    int i;
+    for (i = 0; i < size; i++) {
+        gorocksdb_destroy_many_keys(many_many_keys[i]);
+    }
+    free(many_many_keys);
+}
+
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
+    rocksdb_iterator_t* iter,
+    char** key_froms,
+    size_t* key_from_s,
+    char** key_prefixes,
+    size_t* key_prefix_s,
+    char** key_ends,
+    size_t* key_end_s,
+    int* limits,
+    int size,
+    int page_alloc_size
+) {
+    int i;
+    gorocksdb_many_keys_filter_t key_filter;
+    gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
+    for (i=0; i < size; i++) {
+    	rocksdb_iter_seek(iter, key_froms[i], key_from_s[i]);
+    	key_filter.key_prefix = key_prefixes[i];
+    	key_filter.key_prefix_s = key_prefix_s[i];
+    	key_filter.key_end = key_ends[i];
+    	key_filter.key_end_s = key_end_s[i];
+    	result[i] = gorocksdb_iter_next_many_keys_f(iter, limits[i], &key_filter, page_alloc_size);
+    }
+    return result;
 }
