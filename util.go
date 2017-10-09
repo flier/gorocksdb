@@ -39,6 +39,28 @@ func byteToChar(b []byte) *C.char {
 	return c
 }
 
+func byteSliceToArray(vals [][]byte) (**C.char, *C.size_t) {
+	if len(vals) == 0 {
+		return nil, nil
+	}
+
+	chars := make([]*C.char, len(vals))
+	sizes := make([]C.size_t, len(vals))
+	for i, val := range vals {
+		chars[i] = byteToChar(val)
+		sizes[i] = C.size_t(len(val))
+	}
+
+	cCharBuf := C.malloc(C.size_t(unsafe.Sizeof(chars[0])) * C.size_t(len(chars)))
+	copy(((*[1 << 32]*C.char)(cCharBuf))[:], chars)
+
+	cChars := (**C.char)(cCharBuf)
+
+	cSizes := (*C.size_t)(unsafe.Pointer(&sizes[0]))
+	return cChars, cSizes
+
+}
+
 // Go []byte to C string
 // The C string is allocated in the C heap using malloc.
 func cByteSlice(b []byte) *C.char {
