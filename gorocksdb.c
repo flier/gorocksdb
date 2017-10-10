@@ -68,7 +68,7 @@ rocksdb_slicetransform_t* gorocksdb_slicetransform_create(uintptr_t idx) {
 
 #define DEFAULT_PAGE_ALLOC_SIZE 512
 
-extern gorocksdb_many_keys_t* gorocksdb_iter_many_keys(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size) {
+extern gorocksdb_many_keys_t* gorocksdb_iter_many_keys(rocksdb_iterator_t* iter, int limit, bool reverse, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size) {
     int i;
     char** keys, **values;
     size_t* key_sizes, *value_sizes;
@@ -110,7 +110,7 @@ extern gorocksdb_many_keys_t* gorocksdb_iter_many_keys(rocksdb_iterator_t* iter,
                 // keys are equals, we break
                 break;
             }
-            if  (key_filter->reverse) {
+            if (reverse) {
                 if (c == 0 && key_filter->key_end_s > key_size) {
                     // key_end is bigger than key, we must stop
                     break;
@@ -154,7 +154,7 @@ extern gorocksdb_many_keys_t* gorocksdb_iter_many_keys(rocksdb_iterator_t* iter,
         i++;
 
         // Next key
-        if (key_filter->reverse) {
+        if (reverse) {
             // Move prev
             rocksdb_iter_prev(iter);
         } else {
@@ -203,8 +203,7 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* it
     	key_filter.key_prefix_s = keys_searches[i].key_prefix_s;
     	key_filter.key_end = keys_searches[i].key_end;
     	key_filter.key_end_s = keys_searches[i].key_end_s;
-    	key_filter.reverse = FALSE;
-    	result[i] = gorocksdb_iter_many_keys(iter, keys_searches[i].limit, &key_filter, page_alloc_size);
+    	result[i] = gorocksdb_iter_many_keys(iter, keys_searches[i].limit, keys_searches[i].reverse, &key_filter, page_alloc_size);
     }
     return result;
 }
@@ -226,6 +225,7 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
     char** key_ends,
     size_t* key_end_s,
     int* limits,
+    bool* reverse,
     int size,
     int page_alloc_size
 ) {
@@ -238,8 +238,7 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
     	key_filter.key_prefix_s = key_prefix_s[i];
     	key_filter.key_end = key_ends[i];
     	key_filter.key_end_s = key_end_s[i];
-    	key_filter.reverse = FALSE;
-    	result[i] = gorocksdb_iter_many_keys(iter, limits[i], &key_filter, page_alloc_size);
+    	result[i] = gorocksdb_iter_many_keys(iter, limits[i], reverse[i], &key_filter, page_alloc_size);
     }
     return result;
 }
