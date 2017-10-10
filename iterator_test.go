@@ -385,6 +385,39 @@ func TestIteratorManySearchKeys(t *testing.T) {
 	ensure.DeepEqual(t, result[2].Values(), [][]byte{})
 }
 
+func TestIteratorManySearchKeysReverse(t *testing.T) {
+	db := newTestDB(t, "TestIterator", nil)
+	defer db.Close()
+
+	// insert keys
+	givenKeys := [][]byte{[]byte("A1"), []byte("A2"), []byte("C1"), []byte("C2"), []byte("D"), []byte("E"), []byte("F")}
+	wo := NewDefaultWriteOptions()
+	for _, k := range givenKeys {
+		ensure.Nil(t, db.Put(wo, k, []byte("val_"+string(k))))
+	}
+
+	ro := NewDefaultReadOptions()
+	iter := db.NewIterator(ro)
+	defer iter.Close()
+
+	searches := make([]KeysSearch, 2)
+	searches[0] = KeysSearch{KeyFrom: []byte("C3"), Limit: 1000, Reverse: true}
+	searches[1] = KeysSearch{KeyFrom: []byte("C2"), Limit: 1000, Reverse: true}
+
+	manyManyKeys := iter.ManySearchKeys(searches)
+	defer manyManyKeys.Destroy()
+	result := manyManyKeys.Result()
+	if len(result) != len(searches) {
+		t.Fatalf("result len should be %d", len(searches))
+	}
+	ensure.DeepEqual(t, result[0].Found(), 4)
+	ensure.DeepEqual(t, result[0].Keys(), [][]byte{[]byte("C2"), []byte("C1"), []byte("A2"), []byte("A1")})
+	ensure.DeepEqual(t, result[0].Values(), [][]byte{[]byte("val_C2"), []byte("val_C1"), []byte("val_A2"), []byte("val_A1")})
+	ensure.DeepEqual(t, result[1].Found(), 4)
+	ensure.DeepEqual(t, result[1].Keys(), [][]byte{[]byte("C2"), []byte("C1"), []byte("A2"), []byte("A1")})
+	ensure.DeepEqual(t, result[1].Values(), [][]byte{[]byte("val_C2"), []byte("val_C1"), []byte("val_A2"), []byte("val_A1")})
+}
+
 func TestIteratorManySearchKeysExcludeKeyFrom(t *testing.T) {
 	db := newTestDB(t, "TestIterator", nil)
 	defer db.Close()
