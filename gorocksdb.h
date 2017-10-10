@@ -10,6 +10,10 @@ typedef struct {
 
 } gorocksdb_many_keys_t;
 
+typedef int bool;
+
+#define FALSE 0
+#define TRUE !FALSE
 
 // This API provides convenient C wrapper functions for rocksdb client.
 
@@ -41,17 +45,16 @@ extern rocksdb_slicetransform_t* gorocksdb_slicetransform_create(uintptr_t idx);
 
 /* Iterate many keys */
 
-extern gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys(rocksdb_iterator_t* iter, int size);
-
 typedef struct {
     char* key_prefix;
     size_t key_prefix_s;
     char* key_end;
     size_t key_end_s;
+    bool reverse;
 
 } gorocksdb_many_keys_filter_t;
 
-extern gorocksdb_many_keys_t* gorocksdb_iter_next_many_keys_f(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size);
+extern gorocksdb_many_keys_t* gorocksdb_iter_many_keys(rocksdb_iterator_t* iter, int limit, const gorocksdb_many_keys_filter_t* key_filter, int page_alloc_size);
 
 extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys);
 
@@ -75,7 +78,7 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(
     int page_alloc_size
 );
 
-gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
+extern gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
     rocksdb_iterator_t* iter,
     char** key_froms,
     size_t* key_from_s,
@@ -89,6 +92,8 @@ gorocksdb_many_keys_t** gorocksdb_many_search_keys_raw(
 );
 
 extern void gorocksdb_destroy_many_many_keys(gorocksdb_many_keys_t** many_many_keys, int size);
+
+/* Batch PutMany */
 
 void gorocksdb_writebatch_put_many( 
     rocksdb_writebatch_t* batch,

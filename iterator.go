@@ -81,70 +81,55 @@ func (iter *Iterator) Next() {
 	C.rocksdb_iter_next(iter.c)
 }
 
+// Prev moves the iterator to the previous sequential key in the database.
+func (iter *Iterator) Prev() {
+	C.rocksdb_iter_prev(iter.c)
+}
+
+// SeekToFirst moves the iterator to the first key in the database.
+func (iter *Iterator) SeekToFirst() {
+	C.rocksdb_iter_seek_to_first(iter.c)
+}
+
+// SeekToLast moves the iterator to the last key in the database.
+func (iter *Iterator) SeekToLast() {
+	C.rocksdb_iter_seek_to_last(iter.c)
+}
+
+// Seek moves the iterator to the position greater than or equal to the key.
+func (iter *Iterator) Seek(key []byte) {
+	cKey := byteToChar(key)
+	C.rocksdb_iter_seek(iter.c, cKey, C.size_t(len(key)))
+}
+
+// SeekForPrev moves the iterator to the last key that less than or equal
+// to the target key, in contrast with Seek.
+func (iter *Iterator) SeekForPrev(key []byte) {
+	cKey := byteToChar(key)
+	C.rocksdb_iter_seek_for_prev(iter.c, cKey, C.size_t(len(key)))
+}
+
+// Err returns nil if no errors happened during iteration, or the actual
+// error otherwise.
+func (iter *Iterator) Err() error {
+	var cErr *C.char
+	C.rocksdb_iter_get_error(iter.c, &cErr)
+	if cErr != nil {
+		defer C.free(unsafe.Pointer(cErr))
+		return errors.New(C.GoString(cErr))
+	}
+	return nil
+}
+
+// Close closes the iterator.
+func (iter *Iterator) Close() {
+	C.rocksdb_iter_destroy(iter.c)
+	iter.c = nil
+}
+
 var ManyKeysPageAllocSize int = 512
 
-type ManyKeys struct {
-	c *C.gorocksdb_many_keys_t
-}
-
-func (m *ManyKeys) Destroy() {
-	C.gorocksdb_destroy_many_keys(m.c)
-}
-
-func (m *ManyKeys) Found() int {
-	return int(m.c.found)
-}
-
-func (m *ManyKeys) Keys() [][]byte {
-	found := m.Found()
-	keys := make([][]byte, found)
-
-	for i := uintptr(0); i < uintptr(found); i++ {
-		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.keys)) + i*unsafe.Sizeof(m.c.keys)))
-		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.key_sizes)) + i*unsafe.Sizeof(m.c.key_sizes)))
-		keys[i] = charToByte(chars, size)
-
-	}
-	return keys
-}
-
-func (m *ManyKeys) Values() [][]byte {
-	found := m.Found()
-	values := make([][]byte, found)
-
-	for i := uintptr(0); i < uintptr(found); i++ {
-		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.values)) + i*unsafe.Sizeof(m.c.values)))
-		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.value_sizes)) + i*unsafe.Sizeof(m.c.value_sizes)))
-		values[i] = charToByte(chars, size)
-	}
-	return values
-}
-
-func (m *ManyKeys) Each(each func(i int, key []byte, value []byte) bool) bool {
-	found := m.Found()
-	for i := uintptr(0); i < uintptr(found); i++ {
-		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.keys)) + i*unsafe.Sizeof(m.c.keys)))
-		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.key_sizes)) + i*unsafe.Sizeof(m.c.key_sizes)))
-		key := charToByte(chars, size)
-
-		chars = *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.values)) + i*unsafe.Sizeof(m.c.values)))
-		size = *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.value_sizes)) + i*unsafe.Sizeof(m.c.value_sizes)))
-		value := charToByte(chars, size)
-
-		if !each(int(i), key, value) {
-			return false
-		}
-	}
-	return true
-}
-
-//....
-func (iter *Iterator) NextManyKeys(size int) *ManyKeys {
-	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys(iter.c, C.int(size))}
-}
-
-//....
-func (iter *Iterator) NextManyKeysF(limit int, keyPrefix, keyEnd []byte) *ManyKeys {
+func (iter *Iterator) fetchNextManyKeys(reverse bool, limit int, keyPrefix, keyEnd []byte) *ManyKeys {
 	cKeyFilter := C.gorocksdb_many_keys_filter_t{}
 	if len(keyPrefix) > 0 {
 		cKeyPrefix := C.CString(string(keyPrefix))
@@ -158,17 +143,32 @@ func (iter *Iterator) NextManyKeysF(limit int, keyPrefix, keyEnd []byte) *ManyKe
 		cKeyFilter.key_end = cKeyEnd
 		cKeyFilter.key_end_s = C.size_t(len(keyEnd))
 	}
-	return &ManyKeys{c: C.gorocksdb_iter_next_many_keys_f(iter.c, C.int(limit), &cKeyFilter, C.int(ManyKeysPageAllocSize))}
+	if reverse {
+		cKeyFilter.reverse = 1
+	} else {
+		cKeyFilter.reverse = 0
+	}
+	return &ManyKeys{c: C.gorocksdb_iter_many_keys(iter.c, C.int(limit), &cKeyFilter, C.int(ManyKeysPageAllocSize))}
+}
+
+// NextManyKeys...
+func (iter *Iterator) NextManyKeys(limit int, keyPrefix, keyEnd []byte) *ManyKeys {
+	return iter.fetchNextManyKeys(false, limit, keyPrefix, keyEnd)
+}
+
+// NextManyKeysF... (compat)
+func (iter *Iterator) NextManyKeysF(limit int, keyPrefix, keyEnd []byte) *ManyKeys {
+	return iter.NextManyKeys(limit, keyPrefix, keyEnd)
+}
+
+// PrevManyKeys...
+func (iter *Iterator) PrevManyKeys(limit int, keyPrefix, keyEnd []byte) *ManyKeys {
+	return iter.fetchNextManyKeys(true, limit, keyPrefix, keyEnd)
 }
 
 type KeysSearch struct {
 	KeyFrom, KeyPrefix, KeyEnd []byte
 	Limit                      int
-}
-
-type ManyManyKeys struct {
-	c    **C.gorocksdb_many_keys_t
-	size int
 }
 
 func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
@@ -245,6 +245,66 @@ func (iter *Iterator) ManySearchKeysExp(searches []KeysSearch) *ManyManyKeys {
 	return &ManyManyKeys{c: cManyManyKeys, size: nbSearches}
 }
 
+type ManyKeys struct {
+	c *C.gorocksdb_many_keys_t
+}
+
+func (m *ManyKeys) Destroy() {
+	C.gorocksdb_destroy_many_keys(m.c)
+}
+
+func (m *ManyKeys) Found() int {
+	return int(m.c.found)
+}
+
+func (m *ManyKeys) Keys() [][]byte {
+	found := m.Found()
+	keys := make([][]byte, found)
+
+	for i := uintptr(0); i < uintptr(found); i++ {
+		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.keys)) + i*unsafe.Sizeof(m.c.keys)))
+		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.key_sizes)) + i*unsafe.Sizeof(m.c.key_sizes)))
+		keys[i] = charToByte(chars, size)
+
+	}
+	return keys
+}
+
+func (m *ManyKeys) Values() [][]byte {
+	found := m.Found()
+	values := make([][]byte, found)
+
+	for i := uintptr(0); i < uintptr(found); i++ {
+		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.values)) + i*unsafe.Sizeof(m.c.values)))
+		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.value_sizes)) + i*unsafe.Sizeof(m.c.value_sizes)))
+		values[i] = charToByte(chars, size)
+	}
+	return values
+}
+
+func (m *ManyKeys) Each(each func(i int, key []byte, value []byte) bool) bool {
+	found := m.Found()
+	for i := uintptr(0); i < uintptr(found); i++ {
+		chars := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.keys)) + i*unsafe.Sizeof(m.c.keys)))
+		size := *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.key_sizes)) + i*unsafe.Sizeof(m.c.key_sizes)))
+		key := charToByte(chars, size)
+
+		chars = *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.values)) + i*unsafe.Sizeof(m.c.values)))
+		size = *(*C.size_t)(unsafe.Pointer(uintptr(unsafe.Pointer(m.c.value_sizes)) + i*unsafe.Sizeof(m.c.value_sizes)))
+		value := charToByte(chars, size)
+
+		if !each(int(i), key, value) {
+			return false
+		}
+	}
+	return true
+}
+
+type ManyManyKeys struct {
+	c    **C.gorocksdb_many_keys_t
+	size int
+}
+
 func (m ManyManyKeys) Result() []*ManyKeys {
 	result := make([]*ManyKeys, m.size)
 	for i := uintptr(0); i < uintptr(m.size); i++ {
@@ -256,50 +316,4 @@ func (m ManyManyKeys) Result() []*ManyKeys {
 
 func (m ManyManyKeys) Destroy() {
 	C.gorocksdb_destroy_many_many_keys(m.c, C.int(m.size))
-}
-
-// Prev moves the iterator to the previous sequential key in the database.
-func (iter *Iterator) Prev() {
-	C.rocksdb_iter_prev(iter.c)
-}
-
-// SeekToFirst moves the iterator to the first key in the database.
-func (iter *Iterator) SeekToFirst() {
-	C.rocksdb_iter_seek_to_first(iter.c)
-}
-
-// SeekToLast moves the iterator to the last key in the database.
-func (iter *Iterator) SeekToLast() {
-	C.rocksdb_iter_seek_to_last(iter.c)
-}
-
-// Seek moves the iterator to the position greater than or equal to the key.
-func (iter *Iterator) Seek(key []byte) {
-	cKey := byteToChar(key)
-	C.rocksdb_iter_seek(iter.c, cKey, C.size_t(len(key)))
-}
-
-// SeekForPrev moves the iterator to the last key that less than or equal
-// to the target key, in contrast with Seek.
-func (iter *Iterator) SeekForPrev(key []byte) {
-	cKey := byteToChar(key)
-	C.rocksdb_iter_seek_for_prev(iter.c, cKey, C.size_t(len(key)))
-}
-
-// Err returns nil if no errors happened during iteration, or the actual
-// error otherwise.
-func (iter *Iterator) Err() error {
-	var cErr *C.char
-	C.rocksdb_iter_get_error(iter.c, &cErr)
-	if cErr != nil {
-		defer C.free(unsafe.Pointer(cErr))
-		return errors.New(C.GoString(cErr))
-	}
-	return nil
-}
-
-// Close closes the iterator.
-func (iter *Iterator) Close() {
-	C.rocksdb_iter_destroy(iter.c)
-	iter.c = nil
 }
