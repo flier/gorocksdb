@@ -198,7 +198,11 @@ extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* it
     gorocksdb_many_keys_filter_t key_filter;
     gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
     for (i=0; i < size; i++) {
-    	rocksdb_iter_seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
+        if (keys_searches[i].reverse) {
+            rocksdb_iter_seek_for_prev(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
+        } else {
+    	    rocksdb_iter_seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
+        }
     	if (keys_searches[i].exclude_key_from && rocksdb_iter_valid(iter)) {
             size_t key_size;
             const char* key = rocksdb_iter_key(iter, &key_size);
