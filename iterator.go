@@ -165,15 +165,20 @@ type KeysSearch struct {
 	KeyFrom,
 	KeyPrefix,
 	KeyEnd []byte
-	Limit   int
-	Reverse bool
+	Limit          int
+	Reverse        bool
+	ExcludeKeyFrom bool
 }
 
 func (iter *Iterator) ManySearchKeys(searches []KeysSearch) *ManyManyKeys {
 	nbSearches := len(searches)
 	cManyKeysSearches := make([]C.gorocksdb_keys_search_t, nbSearches)
 	for i := range searches {
-		cKSearch := C.gorocksdb_keys_search_t{limit: C.int(searches[i].Limit), reverse: C.bool(btoi(searches[i].Reverse))}
+		cKSearch := C.gorocksdb_keys_search_t{
+			limit:            C.int(searches[i].Limit),
+			reverse:          C.bool(btoi(searches[i].Reverse)),
+			exclude_key_from: C.bool(btoi(searches[i].ExcludeKeyFrom)),
+		}
 		cKSearch.key_from = C.CString(string(searches[i].KeyFrom))
 		cKSearch.key_from_s = C.size_t(len(searches[i].KeyFrom))
 		if len(searches[i].KeyPrefix) > 0 {

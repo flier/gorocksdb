@@ -68,6 +68,7 @@ typedef struct {
     size_t key_end_s;
     int limit;
     bool reverse;
+    bool exclude_key_from;
 
 } gorocksdb_keys_search_t;
 
