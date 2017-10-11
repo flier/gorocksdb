@@ -193,27 +193,41 @@ extern void gorocksdb_destroy_many_keys(gorocksdb_many_keys_t* many_keys) {
     free(many_keys);
 }
 
+void _seek(rocksdb_iterator_t* iter, char* to_key, size_t to_key_s, bool reverse, bool exclude_to_key) {
+    // seek
+    if (reverse) {
+        if (to_key_s > 0) {
+            rocksdb_iter_seek_for_prev(iter, to_key, to_key_s);
+        } else {
+            rocksdb_iter_seek_to_last(iter);
+        }
+    } else {
+        if (to_key_s > 0) {
+            rocksdb_iter_seek(iter, to_key, to_key_s);
+        } else {
+            rocksdb_iter_seek_to_first(iter);
+        }
+    }
+    // jump current?
+    if (exclude_to_key && rocksdb_iter_valid(iter)) {
+        size_t key_size;
+        const char* key = rocksdb_iter_key(iter, &key_size);
+        if (to_key_s == key_size && memcmp(key, to_key, key_size) == 0) {
+            if (reverse) {
+                rocksdb_iter_prev(iter);
+            } else {
+                rocksdb_iter_next(iter);
+            }
+        }
+    }
+}
+
 extern gorocksdb_many_keys_t** gorocksdb_many_search_keys(rocksdb_iterator_t* iter, const gorocksdb_keys_search_t* keys_searches, int size, int page_alloc_size) {
     int i;
     gorocksdb_many_keys_filter_t key_filter;
     gorocksdb_many_keys_t** result = (gorocksdb_many_keys_t**) malloc(size*sizeof(gorocksdb_many_keys_t*));
     for (i=0; i < size; i++) {
-        if (keys_searches[i].reverse) {
-            rocksdb_iter_seek_for_prev(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
-        } else {
-    	    rocksdb_iter_seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s);
-        }
-    	if (keys_searches[i].exclude_key_from && rocksdb_iter_valid(iter)) {
-            size_t key_size;
-            const char* key = rocksdb_iter_key(iter, &key_size);
-    	    if (keys_searches[i].key_from_s == key_size && memcmp(key, keys_searches[i].key_from, key_size) == 0) {
-    	        if (keys_searches[i].reverse) {
-    	            rocksdb_iter_prev(iter);
-    	        } else {
-    	            rocksdb_iter_next(iter);
-    	        }
-    	    }
-    	}
+        _seek(iter, keys_searches[i].key_from, keys_searches[i].key_from_s, keys_searches[i].reverse, keys_searches[i].exclude_key_from);
     	key_filter.key_prefix = keys_searches[i].key_prefix;
     	key_filter.key_prefix_s = keys_searches[i].key_prefix_s;
     	key_filter.key_end = keys_searches[i].key_end;
