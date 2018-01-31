@@ -48,15 +48,15 @@ func (wb *WriteBatch) PutMany(keys, values [][]byte) error {
 		return errors.New("Number of keys and values should be the same")
 	}
 	numPairs := C.size_t(len(keys))
-	cKeys, cKeySizes := bytesSliceToArray(keys)
-	defer freeCharsArray(cKeys, len(keys))
-	cValues, cValueSizes := bytesSliceToArray(values)
-	defer freeCharsArray(cValues, len(values))
+	cKeys, cKeySizes := byteSlicesToCSlices(keys)
+	defer cKeys.Destroy()
+	cValues, cValueSizes := byteSlicesToCSlices(values)
+	defer cValues.Destroy()
 	C.gorocksdb_writebatch_put_many(
 		wb.c,
 		numPairs,
-		cKeys, cKeySizes,
-		cValues, cValueSizes,
+		cKeys.c(), cKeySizes.c(),
+		cValues.c(), cValueSizes.c(),
 	)
 	return nil
 }
@@ -67,15 +67,15 @@ func (wb *WriteBatch) PutManyCF(cf *ColumnFamilyHandle, keys, values [][]byte) e
 		return errors.New("Number of keys and values should be the same")
 	}
 	numPairs := C.size_t(len(keys))
-	cKeys, cKeySizes := bytesSliceToArray(keys)
-	defer freeCharsArray(cKeys, len(keys))
-	cValues, cValueSizes := bytesSliceToArray(values)
-	defer freeCharsArray(cValues, len(values))
+	cKeys, cKeySizes := byteSlicesToCSlices(keys)
+	defer cKeys.Destroy()
+	cValues, cValueSizes := byteSlicesToCSlices(values)
+	defer cValues.Destroy()
 	C.gorocksdb_writebatch_put_many_cf(
 		wb.c, cf.c,
 		numPairs,
-		cKeys, cKeySizes,
-		cValues, cValueSizes,
+		cKeys.c(), cKeySizes.c(),
+		cValues.c(), cValueSizes.c(),
 	)
 	return nil
 }
