@@ -10,7 +10,8 @@ import (
 
 // WriteBatch is a batching of Puts, Merges and Deletes.
 type WriteBatch struct {
-	c *C.rocksdb_writebatch_t
+	c           *C.rocksdb_writebatch_t
+	charsSlices []charsSlice
 }
 
 // NewWriteBatch create a WriteBatch object.
@@ -49,9 +50,8 @@ func (wb *WriteBatch) PutMany(keys, values [][]byte) error {
 	}
 	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := byteSlicesToCSlices(keys)
-	defer cKeys.Destroy()
 	cValues, cValueSizes := byteSlicesToCSlices(values)
-	defer cValues.Destroy()
+	wb.charsSlices = append(wb.charsSlices, cKeys, cValues)
 	C.gorocksdb_writebatch_put_many(
 		wb.c,
 		numPairs,
@@ -68,9 +68,8 @@ func (wb *WriteBatch) PutManyCF(cf *ColumnFamilyHandle, keys, values [][]byte) e
 	}
 	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := byteSlicesToCSlices(keys)
-	defer cKeys.Destroy()
 	cValues, cValueSizes := byteSlicesToCSlices(values)
-	defer cValues.Destroy()
+	wb.charsSlices = append(wb.charsSlices, cKeys, cValues)
 	C.gorocksdb_writebatch_put_many_cf(
 		wb.c, cf.c,
 		numPairs,
@@ -137,6 +136,9 @@ func (wb *WriteBatch) Clear() {
 func (wb *WriteBatch) Destroy() {
 	C.rocksdb_writebatch_destroy(wb.c)
 	wb.c = nil
+	for _, slice := range wb.charsSlices {
+		slice.Destroy()
+	}
 }
 
 // WriteBatchRecordType describes the type of a batch record.
