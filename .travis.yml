@@ -1,7 +1,6 @@
 language: go
 go:
-  - 1.6
-  - tip
+  - '1.9.3'
 
 before_install:
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
