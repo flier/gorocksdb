@@ -49,26 +49,24 @@ func bytesSliceToArray(vals [][]byte) (**C.char, *C.size_t) {
 		return nil, nil
 	}
 
-	chars := make([]*C.char, len(vals))
-	sizes := make([]C.size_t, len(vals))
+	chars, cChars := emptyCharSlice(len(vals))
+	sizes, cSizes := emptySizetSlice(len(vals))
 	for i, val := range vals {
-		chars[i] = byteToChar(val)
+		chars[i] = (*C.char)(C.CBytes(val))
 		sizes[i] = C.size_t(len(val))
 	}
 
-	cCharBuf := C.malloc(C.size_t(unsafe.Sizeof(chars[0])) * C.size_t(len(chars)))
-	copy(((*[1 << 32]*C.char)(cCharBuf))[:], chars)
-
-	cChars := (**C.char)(cCharBuf)
-
-	cSizes := (*C.size_t)(unsafe.Pointer(&sizes[0]))
 	return cChars, cSizes
-
 }
 
 // freeCharsArray frees a **C.char that is malloced by this library itself.
-func freeCharsArray(charsArray **C.char) {
-	C.free(unsafe.Pointer(charsArray))
+func freeCharsArray(charsArray **C.char, length int) {
+	var charsSlice []*C.char
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&charsSlice))
+	sH.Cap, sH.Len, sH.Data = length, length, uintptr(unsafe.Pointer(charsArray))
+	for _, chars := range charsSlice {
+		C.free(unsafe.Pointer(chars))
+	}
 }
 
 // Go []byte to C string
@@ -87,6 +85,20 @@ func cByteSlice(b []byte) *C.char {
 func stringToChar(s string) *C.char {
 	ptrStr := (*reflect.StringHeader)(unsafe.Pointer(&s))
 	return (*C.char)(unsafe.Pointer(ptrStr.Data))
+}
+
+func emptyCharSlice(length int) (slice []*C.char, cSlice **C.char) {
+	slice = make([]*C.char, length)
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	cSlice = (**C.char)(unsafe.Pointer(sH.Data))
+	return slice, cSlice
+}
+
+func emptySizetSlice(length int) (slice []C.size_t, cSlice *C.size_t) {
+	slice = make([]C.size_t, length)
+	sH := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+	cSlice = (*C.size_t)(unsafe.Pointer(sH.Data))
+	return slice, cSlice
 }
 
 // charSlice converts a C array of *char to a []*C.char.

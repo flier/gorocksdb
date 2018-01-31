@@ -49,9 +49,9 @@ func (wb *WriteBatch) PutMany(keys, values [][]byte) error {
 	}
 	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := bytesSliceToArray(keys)
-	defer freeCharsArray(cKeys)
+	defer freeCharsArray(cKeys, len(keys))
 	cValues, cValueSizes := bytesSliceToArray(values)
-	defer freeCharsArray(cValues)
+	defer freeCharsArray(cValues, len(values))
 	C.gorocksdb_writebatch_put_many(
 		wb.c,
 		numPairs,
@@ -68,9 +68,9 @@ func (wb *WriteBatch) PutManyCF(cf *ColumnFamilyHandle, keys, values [][]byte) e
 	}
 	numPairs := C.size_t(len(keys))
 	cKeys, cKeySizes := bytesSliceToArray(keys)
-	defer freeCharsArray(cKeys)
+	defer freeCharsArray(cKeys, len(keys))
 	cValues, cValueSizes := bytesSliceToArray(values)
-	defer freeCharsArray(cValues)
+	defer freeCharsArray(cValues, len(values))
 	C.gorocksdb_writebatch_put_many_cf(
 		wb.c, cf.c,
 		numPairs,
