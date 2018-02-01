@@ -16,6 +16,7 @@ before_install:
 install:
   - git clone https://github.com/facebook/rocksdb.git /tmp/rocksdb
   - pushd /tmp/rocksdb
+  - git checkout v5.7.3
   - make clean
   - make shared_lib
   - sudo cp --preserve=links ./librocksdb.* /usr/lib/
@@ -24,7 +25,7 @@ install:
   - go get -t ./...
 
 script:
-  - go test -v ./
+  - GODEBUG=cgocheck=2 go test -v ./
 
 notifications:
   email:
