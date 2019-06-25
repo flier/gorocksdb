@@ -75,8 +75,9 @@ func TestDBCRUDDBPaths(t *testing.T) {
 
 	var (
 		givenKey  = []byte("hello")
-		givenVal1 = []byte("world1")
-		givenVal2 = []byte("world2")
+		givenVal1 = []byte("")
+		givenVal2 = []byte("world1")
+		givenVal3 = []byte("world2")
 		wo        = NewDefaultWriteOptions()
 		ro        = NewDefaultReadOptions()
 	)
