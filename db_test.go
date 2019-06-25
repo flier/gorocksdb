@@ -21,7 +21,6 @@ func TestDBCRUD(t *testing.T) {
 		givenKey  = []byte("hello")
 		givenVal1 = []byte("")
 		givenVal2 = []byte("world1")
-		givenVal3 = []byte("world2")
 		wo        = NewDefaultWriteOptions()
 		ro        = NewDefaultReadOptions()
 	)
@@ -46,7 +45,7 @@ func TestDBCRUD(t *testing.T) {
 	v3, err := db.GetPinned(ro, givenKey)
 	defer v3.Destroy()
 	ensure.Nil(t, err)
-	ensure.DeepEqual(t, v3.Data(), givenVal3)
+	ensure.DeepEqual(t, v3.Data(), givenVal2)
 
 	// delete
 	ensure.Nil(t, db.Delete(wo, givenKey))
@@ -58,7 +57,7 @@ func TestDBCRUD(t *testing.T) {
 	v5, err := db.GetPinned(ro, givenKey)
 	defer v5.Destroy()
 	ensure.Nil(t, err)
-	ensure.Nil(t, v5.Data())
+	ensure.True(t, v5.Data() == nil)
 }
 
 func TestDBCRUDDBPaths(t *testing.T) {
