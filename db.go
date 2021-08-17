@@ -766,6 +766,50 @@ func (db *DB) DeleteFile(name string) {
 	C.rocksdb_delete_file(db.c, cName)
 }
 
+// DeleteFileInRange deletes SST files that contain keys between the Range, [r.Start, limitKey]
+func (db *DB) DeleteFileInRange(r Range) error {
+	cStartKey := byteToChar(r.Start)
+	cLimitKey := byteToChar(r.Limit)
+
+	var cErr *C.char
+
+	C.rocksdb_delete_file_in_range(
+		db.c,
+		cStartKey, C.size_t(len(r.Start)),
+		cLimitKey, C.size_t(len(r.Limit)),
+		&cErr,
+	)
+
+	if cErr != nil {
+		defer C.free(unsafe.Pointer(cErr))
+		return errors.New(C.GoString(cErr))
+	}
+	return nil
+}
+
+// DeleteFileInRangeCF deletes SST files that contain keys between the Range, [r.Start, r.Limit], and
+// belong to a given column family
+func (db *DB) DeleteFileInRangeCF(cf *ColumnFamilyHandle, r Range) error {
+	cStartKey := byteToChar(r.Start)
+	cLimitKey := byteToChar(r.Limit)
+
+	var cErr *C.char
+
+	C.rocksdb_delete_file_in_range_cf(
+		db.c,
+		cf.c,
+		cStartKey, C.size_t(len(r.Start)),
+		cLimitKey, C.size_t(len(r.Limit)),
+		&cErr,
+	)
+
+	if cErr != nil {
+		defer C.free(unsafe.Pointer(cErr))
+		return errors.New(C.GoString(cErr))
+	}
+	return nil
+}
+
 // IngestExternalFile loads a list of external SST files.
 func (db *DB) IngestExternalFile(filePaths []string, opts *IngestExternalFileOptions) error {
 	cFilePaths := make([]*C.char, len(filePaths))
