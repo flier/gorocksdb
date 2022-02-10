@@ -27,7 +27,7 @@ func (transaction *Transaction) Commit() error {
 	)
 	C.rocksdb_transaction_commit(transaction.c, &cErr)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return errors.New(C.GoString(cErr))
 	}
 	return nil
@@ -41,7 +41,7 @@ func (transaction *Transaction) Rollback() error {
 	C.rocksdb_transaction_rollback(transaction.c, &cErr)
 
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return errors.New(C.GoString(cErr))
 	}
 	return nil
@@ -77,7 +77,7 @@ func (transaction *Transaction) GetCF(opts *ReadOptions, cf *ColumnFamilyHandle,
 	)
 	runtime.KeepAlive(key)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return nil, errors.New(C.GoString(cErr))
 	}
 	return NewSlice(cValue, cValLen), nil
@@ -95,7 +95,7 @@ func (transaction *Transaction) GetForUpdate(opts *ReadOptions, key []byte) (*Sl
 	)
 	runtime.KeepAlive(key)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return nil, errors.New(C.GoString(cErr))
 	}
 	return NewSlice(cValue, cValLen), nil
@@ -133,7 +133,7 @@ func (transaction *Transaction) PutCF(cf *ColumnFamilyHandle, key, value []byte)
 	runtime.KeepAlive(key)
 	runtime.KeepAlive(value)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return errors.New(C.GoString(cErr))
 	}
 	return nil
@@ -180,7 +180,7 @@ func (transaction *Transaction) Merge(key []byte, value []byte) error {
 	runtime.KeepAlive(key)
 	runtime.KeepAlive(value)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return errors.New(C.GoString(cErr))
 	}
 	return nil

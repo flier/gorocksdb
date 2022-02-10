@@ -60,15 +60,6 @@ const (
 	FatalInfoLogLevel = InfoLogLevel(4)
 )
 
-type WALRecoveryMode int
-
-const (
-	TolerateCorruptedTailRecordsRecovery = WALRecoveryMode(0)
-	AbsoluteConsistencyRecovery          = WALRecoveryMode(1)
-	PointInTimeRecovery                  = WALRecoveryMode(2)
-	SkipAnyCorruptedRecordsRecovery      = WALRecoveryMode(3)
-)
-
 // Options represent all of the available options when opening a database with Open.
 type Options struct {
 	c *C.rocksdb_options_t
@@ -111,7 +102,7 @@ func GetOptionsFromString(base *Options, optStr string) (*Options, error) {
 	newOpt := NewDefaultOptions()
 	C.rocksdb_get_options_from_string(base.c, cOptStr, newOpt.c, &cErr)
 	if cErr != nil {
-		defer C.rocksdb_free(unsafe.Pointer(cErr))
+		defer C.free(unsafe.Pointer(cErr))
 		return nil, errors.New(C.GoString(cErr))
 	}
 
@@ -354,7 +345,7 @@ func (opts *Options) OptimizeUniversalStyleCompaction(memtable_memory_budget uin
 // so you may wish to adjust this parameter to control memory usage.
 // Also, a larger write buffer will result in a longer recovery time
 // the next time the database is opened.
-// Default: 64MB
+// Default: 4MB
 func (opts *Options) SetWriteBufferSize(value int) {
 	C.rocksdb_options_set_write_buffer_size(opts.c, C.size_t(value))
 }
@@ -758,34 +749,6 @@ func (opts *Options) SetRecycleLogFileNum(value int) {
 	C.rocksdb_options_set_recycle_log_file_num(opts.c, C.size_t(value))
 }
 
-// SetSoftRateLimit sets the soft rate limit.
-//
-// Puts are delayed 0-1 ms when any level has a compaction score that exceeds
-// soft_rate_limit. This is ignored when == 0.0.
-// CONSTRAINT: soft_rate_limit <= hard_rate_limit. If this constraint does not
-// hold, RocksDB will set soft_rate_limit = hard_rate_limit
-// Default: 0.0 (disabled)
-func (opts *Options) SetSoftRateLimit(value float64) {
-	C.rocksdb_options_set_soft_rate_limit(opts.c, C.double(value))
-}
-
-// SetHardRateLimit sets the hard rate limit.
-//
-// Puts are delayed 1ms at a time when any level has a compaction score that
-// exceeds hard_rate_limit. This is ignored when <= 1.0.
-// Default: 0.0 (disabled)
-func (opts *Options) SetHardRateLimit(value float64) {
-	C.rocksdb_options_set_hard_rate_limit(opts.c, C.double(value))
-}
-
-// SetRateLimitDelayMaxMilliseconds sets the max time
-// a put will be stalled when hard_rate_limit is enforced.
-// If 0, then there is no limit.
-// Default: 1000
-func (opts *Options) SetRateLimitDelayMaxMilliseconds(value uint) {
-	C.rocksdb_options_set_rate_limit_delay_max_milliseconds(opts.c, C.uint(value))
-}
-
 // SetMaxManifestFileSize sets the maximal manifest file size until is rolled over.
 // The older manifest file be deleted.
 // Default: MAX_INT so that roll-over does not take place.
@@ -797,19 +760,6 @@ func (opts *Options) SetMaxManifestFileSize(value uint64) {
 // Default: 4
 func (opts *Options) SetTableCacheNumshardbits(value int) {
 	C.rocksdb_options_set_table_cache_numshardbits(opts.c, C.int(value))
-}
-
-// SetTableCacheRemoveScanCountLimit sets the count limit during a scan.
-//
-// During data eviction of table's LRU cache, it would be inefficient
-// to strictly follow LRU because this piece of memory will not really
-// be released unless its refcount falls to zero. Instead, make two
-// passes: the first pass will release items with refcount = 1,
-// and if not enough space releases after scanning the number of
-// elements specified by this parameter, we will remove items in LRU order.
-// Default: 16
-func (opts *Options) SetTableCacheRemoveScanCountLimit(value int) {
-	C.rocksdb_options_set_table_cache_remove_scan_count_limit(opts.c, C.int(value))
 }
 
 // SetArenaBlockSize sets the size of one block in arena memory allocation.
@@ -827,14 +777,6 @@ func (opts *Options) SetArenaBlockSize(value int) {
 // Default: false
 func (opts *Options) SetDisableAutoCompactions(value bool) {
 	C.rocksdb_options_set_disable_auto_compactions(opts.c, C.int(btoi(value)))
-}
-
-// SetWALRecoveryMode sets the recovery mode
-//
-// Recovery mode to control the consistency while replaying WAL
-// Default: TolerateCorruptedTailRecordsRecovery
-func (opts *Options) SetWALRecoveryMode(mode WALRecoveryMode) {
-	C.rocksdb_options_set_wal_recovery_mode(opts.c, C.int(mode))
 }
 
 // SetWALTtlSeconds sets the WAL ttl in seconds.
@@ -902,13 +844,6 @@ func (opts *Options) SetManifestPreallocationSize(value int) {
 	C.rocksdb_options_set_manifest_preallocation_size(opts.c, C.size_t(value))
 }
 
-// SetPurgeRedundantKvsWhileFlush enable/disable purging of
-// duplicate/deleted keys when a memtable is flushed to storage.
-// Default: true
-func (opts *Options) SetPurgeRedundantKvsWhileFlush(value bool) {
-	C.rocksdb_options_set_purge_redundant_kvs_while_flush(opts.c, boolToChar(value))
-}
-
 // SetAllowMmapReads enable/disable mmap reads for reading sst tables.
 // Default: false
 func (opts *Options) SetAllowMmapReads(value bool) {
@@ -938,14 +873,6 @@ func (opts *Options) SetUseDirectIOForFlushAndCompaction(value bool) {
 // Default: true
 func (opts *Options) SetIsFdCloseOnExec(value bool) {
 	C.rocksdb_options_set_is_fd_close_on_exec(opts.c, boolToChar(value))
-}
-
-// SetSkipLogErrorOnRecovery enable/disable skipping of
-// log corruption error on recovery (If client is ok with
-// losing most recent changes)
-// Default: false
-func (opts *Options) SetSkipLogErrorOnRecovery(value bool) {
-	C.rocksdb_options_set_skip_log_error_on_recovery(opts.c, boolToChar(value))
 }
 
 // SetStatsDumpPeriodSec sets the stats dump period in seconds.
@@ -1054,7 +981,7 @@ func (opts *Options) SetFIFOCompactionOptions(value *FIFOCompactionOptions) {
 // GetStatisticsString returns the statistics as a string.
 func (opts *Options) GetStatisticsString() string {
 	sString := C.rocksdb_options_statistics_get_string(opts.c)
-	defer C.rocksdb_free(unsafe.Pointer(sString))
+	defer C.free(unsafe.Pointer(sString))
 	return C.GoString(sString)
 }
 
@@ -1299,8 +1226,9 @@ func (opts *Options) Destroy() {
 	if opts.ccmp != nil {
 		C.rocksdb_comparator_destroy(opts.ccmp)
 	}
-	// don't destroy the opts.cst here, it has already been
-	// associated with a PrefixExtractor and this will segfault
+	if opts.cst != nil {
+		C.rocksdb_slicetransform_destroy(opts.cst)
+	}
 	if opts.ccf != nil {
 		C.rocksdb_compactionfilter_destroy(opts.ccf)
 	}
